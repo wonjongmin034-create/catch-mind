@@ -15,6 +15,25 @@ export const MAX_CHAT = 40
 
 const rid = () => Math.random().toString(36).slice(2, 10)
 
+// 최근에 나온 단어 — 기기에 저장해서 다음 수업에도 겹치지 않게
+const RECENT_KEY = 'cm.recent'
+const RECENT_MAX = 400
+function loadRecent(): string[] {
+  try {
+    const v = JSON.parse(localStorage.getItem(RECENT_KEY) ?? '[]')
+    return Array.isArray(v) ? v.filter((x) => typeof x === 'string').slice(-RECENT_MAX) : []
+  } catch {
+    return []
+  }
+}
+function saveRecent(words: string[]) {
+  try {
+    localStorage.setItem(RECENT_KEY, JSON.stringify(words))
+  } catch {
+    /* 저장 못 해도 게임은 계속 */
+  }
+}
+
 function lobby(prev?: GameState | null): GameState {
   return {
     from: '',
@@ -61,7 +80,13 @@ export function useRoom(room: string, me: { id: string; name: string }) {
   const playersRef = useRef<Player[]>([])
   const deadlineRef = useRef(0)
   const readyRef = useRef(false)
-  const recentWords = useRef<string[]>([])
+  const recentWords = useRef<string[]>(loadRecent())
+  /** 나온 단어 기억 (맨 뒤가 가장 최근). 새로고침·다음 수업에도 이어지도록 기기에 저장 */
+  const remember = (words: string[]) => {
+    const r = recentWords.current.filter((w) => !words.includes(w))
+    recentWords.current = [...r, ...words].slice(-RECENT_MAX)
+    saveRecent(recentWords.current)
+  }
   const opBuf = useRef<DrawOp[]>([])
   const flushTimer = useRef<number | null>(null)
   const chatSeq = useRef(0)
@@ -104,6 +129,8 @@ export function useRoom(room: string, me: { id: string; name: string }) {
       sfx.correct()
     }
     if (s.phase === 'reveal' && prev?.phase !== 'reveal') {
+      // 모든 기기가 나온 답을 기억 → 누가 방장이 돼도 최근 단어를 피함
+      if (s.word) remember([s.word])
       addChat({ kind: 'system', text: `정답은 "${s.word}"! ${s.note}` })
       sfx.reveal()
     }
@@ -143,6 +170,9 @@ export function useRoom(room: string, me: { id: string; name: string }) {
       names[p.id] = p.name
       scores[p.id] ??= 0
     }
+    // 보기로 보여 준 단어도 기억 → 그린 사람이 다음에 같은 보기를 또 받지 않게
+    const choices = pickWords(3, recentWords.current, s.settings.level ?? 'hard')
+    remember(choices.map((w) => w.w))
     commit(
       {
         ...s,
@@ -151,7 +181,7 @@ export function useRoom(room: string, me: { id: string; name: string }) {
         drawerId: queue[0],
         queue: queue.slice(1),
         turnNo: s.turnNo + 1,
-        choices: pickWords(3, new Set(recentWords.current), s.settings.level ?? 'hard'),
+        choices,
         word: '',
         cat: '',
         hard: false,
@@ -167,7 +197,7 @@ export function useRoom(room: string, me: { id: string; name: string }) {
   }
 
   const chooseWord = (s: GameState, w: Word) => {
-    recentWords.current = [...recentWords.current, w.w].slice(-80)
+    remember([w.w])
     commit({ ...s, phase: 'drawing', word: w.w, cat: w.c, hard: !!w.h, choices: [] }, s.settings.drawTime * 1000)
   }
 
