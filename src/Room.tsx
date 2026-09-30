@@ -3,12 +3,18 @@ import Board from './Board'
 import { sfx } from './sfx'
 import type { GameState, Player } from './types'
 import { MAX_CHAT, useRoom } from './useRoom'
+import type { Level } from './words'
 
 const COLORS = [
   '#222222', '#8a8a8a', '#e53935', '#fb8c00', '#fdd835', '#43a047',
   '#29b6f6', '#1e5bd8', '#8e44ad', '#f06292', '#8d5a2b',
 ]
 const SIZES = [5, 12, 26]
+const LEVELS: [Level, string][] = [
+  ['easy', '쉬움'],
+  ['hard', '🔥 어려움'],
+  ['mix', '섞어서'],
+]
 const ERASER = '#ffffff'
 
 interface Props {
@@ -117,10 +123,16 @@ function toolsHint(s: GameState | null, meId: string) {
 function WordBar({ s, meId }: { s: GameState | null; meId: string }) {
   if (!s || (s.phase !== 'drawing' && s.phase !== 'reveal')) return <div className="word" />
   const show = s.phase === 'reveal' || s.drawerId === meId || s.guessed.includes(meId)
+  const cat = (
+    <span className={'cat' + (s.hard ? ' hard' : '')}>
+      {s.hard && '🔥 '}
+      {s.cat}
+    </span>
+  )
   if (show)
     return (
       <div className="word">
-        <span className="cat">{s.cat}</span>
+        {cat}
         <b>{s.word}</b>
         {s.drawerId === meId && s.phase === 'drawing' && <span className="me-draw">내가 그려요!</span>}
       </div>
@@ -128,8 +140,8 @@ function WordBar({ s, meId }: { s: GameState | null; meId: string }) {
   const chars = [...s.word]
   return (
     <div className="word">
-      <span className="cat">{s.cat}</span>
-      <span className="blanks">
+      {cat}
+      <span className={'blanks' + (chars.length > 7 ? ' long' : '')}>
         {chars.map((ch, i) =>
           ch === ' ' ? (
             <i key={i} className="gap" />
@@ -187,12 +199,23 @@ function Overlay({ r, meId }: { r: R; meId: string }) {
             <h2>내 차례! 그릴 단어를 골라요 ✏️</h2>
             <div className="choices">
               {s.choices.map((w, i) => (
-                <button key={w.w} className="choice" onClick={() => r.choose(i)}>
-                  <small>{w.c}</small>
+                <button key={w.w} className={'choice' + (w.h ? ' hard' : '')} onClick={() => r.choose(i)}>
+                  <small>
+                    {w.h && '🔥 '}
+                    {w.c}
+                  </small>
                   {w.w}
+                  {w.h && <em>점수 1.5배</em>}
                 </button>
               ))}
             </div>
+            {s.choices.some((w) => w.h) && (
+              <p className="tip">
+                💡 그대로 못 그리겠으면 <b>쪼개서</b> 그려요!
+                <br />
+                검정색 → 🗡️ 검 + 😐 정색하는 얼굴 · 귀가 얇다 → 종이처럼 얇은 귀
+              </p>
+            )}
             <p className="muted">시간 안에 안 고르면 자동으로 정해져요</p>
           </div>
         </div>
@@ -273,6 +296,19 @@ function Lobby({ r }: { r: R }) {
         <h2>모둠 친구들을 기다려요 ({n}명)</h2>
         {s.note && <p className="note">{s.note}</p>}
         <div className="setting">
+          <span>난이도</span>
+          {LEVELS.map(([v, label]) => (
+            <button
+              key={v}
+              className={'pill' + ((set.level ?? 'hard') === v ? ' on' : '')}
+              disabled={!r.isHost}
+              onClick={() => r.setSettings({ ...set, level: v })}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <div className="setting">
           <span>라운드</span>
           {[1, 2, 3, 4, 5].map((v) => (
             <button
@@ -287,7 +323,7 @@ function Lobby({ r }: { r: R }) {
         </div>
         <div className="setting">
           <span>그리는 시간</span>
-          {[60, 80, 100, 120].map((v) => (
+          {[60, 80, 100, 120, 150].map((v) => (
             <button
               key={v}
               className={'pill' + (set.drawTime === v ? ' on' : '')}
@@ -300,6 +336,8 @@ function Lobby({ r }: { r: R }) {
         </div>
         <p className="muted">
           한 라운드에 모두 한 번씩 그려요 · 먼저 맞힐수록 점수가 높아요
+          <br />
+          🔥 어려운 단어는 점수 1.5배!
         </p>
         {r.isHost ? (
           <button className="big" disabled={n < 2} onClick={r.start}>

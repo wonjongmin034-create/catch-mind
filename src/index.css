@@ -232,6 +232,24 @@ input {
   border: none;
   width: 12px;
 }
+/* 속담처럼 긴 답은 칸을 작게 + 줄바꿈 */
+.blanks.long {
+  gap: 3px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.blanks.long i {
+  width: 20px;
+  height: 28px;
+  font-size: 17px;
+}
+.blanks.long i.gap {
+  width: 8px;
+}
+.cat.hard {
+  background: #fff0ec;
+  color: #d4583b;
+}
 .len {
   font-size: 13px;
   color: var(--muted);
@@ -397,6 +415,28 @@ input {
 }
 .choice:active {
   background: var(--sun);
+}
+.choice.hard {
+  border-color: var(--brand);
+}
+.choice.hard small {
+  color: var(--brand);
+}
+.choice em {
+  font-style: normal;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--brand);
+}
+.tip {
+  margin: 14px auto 0;
+  max-width: 440px;
+  background: #fff;
+  border: 2px dashed var(--sun);
+  border-radius: 14px;
+  padding: 10px 12px;
+  font-size: 14px;
+  line-height: 1.6;
 }
 .answer {
   font-size: 48px;

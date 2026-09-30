@@ -10,6 +10,7 @@ const CHOOSE_MS = 12_000
 const REVEAL_MS = 5_000
 const RANK_PTS = [10, 8, 7, 6] // 맞힌 순서별 점수, 그 뒤로는 5점
 const DRAWER_PTS = 3 // 누가 맞힐 때마다 그린 사람에게
+const HARD_DRAWER_PTS = 5 // 어려운 단어일 때 (맞힌 사람 점수는 1.5배)
 export const MAX_CHAT = 40
 
 const rid = () => Math.random().toString(36).slice(2, 10)
@@ -20,7 +21,7 @@ function lobby(prev?: GameState | null): GameState {
     v: 0,
     gid: rid(),
     phase: 'lobby',
-    settings: prev?.settings ?? { rounds: 2, drawTime: 80 },
+    settings: prev?.settings ?? { rounds: 2, drawTime: 100, level: 'hard' },
     round: 0,
     queue: [],
     turnNo: 0,
@@ -28,6 +29,7 @@ function lobby(prev?: GameState | null): GameState {
     choices: [],
     word: '',
     cat: '',
+    hard: false,
     hints: [],
     endsIn: 0,
     scores: {},
@@ -149,9 +151,10 @@ export function useRoom(room: string, me: { id: string; name: string }) {
         drawerId: queue[0],
         queue: queue.slice(1),
         turnNo: s.turnNo + 1,
-        choices: pickWords(3, new Set(recentWords.current)),
+        choices: pickWords(3, new Set(recentWords.current), s.settings.level ?? 'hard'),
         word: '',
         cat: '',
+        hard: false,
         hints: [],
         guessed: [],
         gained: {},
@@ -165,7 +168,7 @@ export function useRoom(room: string, me: { id: string; name: string }) {
 
   const chooseWord = (s: GameState, w: Word) => {
     recentWords.current = [...recentWords.current, w.w].slice(-80)
-    commit({ ...s, phase: 'drawing', word: w.w, cat: w.c, choices: [] }, s.settings.drawTime * 1000)
+    commit({ ...s, phase: 'drawing', word: w.w, cat: w.c, hard: !!w.h, choices: [] }, s.settings.drawTime * 1000)
   }
 
   const reveal = (s: GameState, note: string) => commit({ ...s, phase: 'reveal', note }, REVEAL_MS)
@@ -175,14 +178,16 @@ export function useRoom(room: string, me: { id: string; name: string }) {
     if (!s || s.phase !== 'drawing' || id === s.drawerId || s.guessed.includes(id)) return
     if (!playersRef.current.some((p) => p.id === id)) return
     if (norm(text) !== norm(s.word)) return
-    const pts = RANK_PTS[s.guessed.length] ?? 5
+    const base = RANK_PTS[s.guessed.length] ?? 5
+    const pts = s.hard ? Math.round(base * 1.5) : base
+    const dp = s.hard ? HARD_DRAWER_PTS : DRAWER_PTS
     const d = s.drawerId
     commit({
       ...s,
       guessed: [...s.guessed, id],
       names: { ...s.names, [id]: nameOf(s, id) },
-      scores: { ...s.scores, [id]: (s.scores[id] ?? 0) + pts, [d]: (s.scores[d] ?? 0) + DRAWER_PTS },
-      gained: { ...s.gained, [id]: pts, [d]: (s.gained[d] ?? 0) + DRAWER_PTS },
+      scores: { ...s.scores, [id]: (s.scores[id] ?? 0) + pts, [d]: (s.scores[d] ?? 0) + dp },
+      gained: { ...s.gained, [id]: pts, [d]: (s.gained[d] ?? 0) + dp },
     })
   }
 

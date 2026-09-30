@@ -1,10 +1,11 @@
-import type { Word } from './words'
+import type { Level, Word } from './words'
 
 export type Phase = 'lobby' | 'choosing' | 'drawing' | 'reveal' | 'over'
 
 export interface Settings {
   rounds: number
   drawTime: number // 초
+  level: Level
 }
 
 /** 방장(가장 먼저 들어온 사람)이 만들어서 방 전체에 뿌리는 게임 상태 */
@@ -21,6 +22,7 @@ export interface GameState {
   choices: Word[]
   word: string
   cat: string
+  hard: boolean // 어려운 단어면 점수 1.5배
   hints: number[] // 공개된 글자 위치
   endsIn: number // 보낸 시점 기준 남은 ms (기기마다 시계가 달라서 절대시각 대신 사용)
   scores: Record<string, number>
